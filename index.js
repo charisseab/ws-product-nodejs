@@ -1,10 +1,21 @@
 const express = require('express')
 const pg = require('pg')
+const cors = require('cors')
+const dotenv = require("dotenv")
 
 const app = express()
+app.use(cors())
+dotenv.config()
+
 // configs come from standard PostgreSQL env vars
 // https://www.postgresql.org/docs/9.6/static/libpq-envars.html
-const pool = new pg.Pool()
+const pool = new pg.Pool({
+  host: process.env.PGHOST,
+  port: process.env.PGPORT,
+  database: process.env.PGDATABASE,
+  user: process.env.PGUSER,
+  password: process.env.PGPASSWORD
+})
 
 const queryHandler = (req, res, next) => {
   pool.query(req.sqlQuery).then((r) => {
@@ -12,11 +23,11 @@ const queryHandler = (req, res, next) => {
   }).catch(next)
 }
 
-app.get('/', (req, res) => {
+app.get('/api/', (req, res) => {
   res.send('Welcome to EQ Works 😎')
 })
 
-app.get('/events/hourly', (req, res, next) => {
+app.get('/api/events/hourly', (req, res, next) => {
   req.sqlQuery = `
     SELECT date, hour, events
     FROM public.hourly_events
@@ -26,7 +37,7 @@ app.get('/events/hourly', (req, res, next) => {
   return next()
 }, queryHandler)
 
-app.get('/events/daily', (req, res, next) => {
+app.get('/api/events/daily', (req, res, next) => {
   req.sqlQuery = `
     SELECT date, SUM(events) AS events
     FROM public.hourly_events
@@ -37,7 +48,7 @@ app.get('/events/daily', (req, res, next) => {
   return next()
 }, queryHandler)
 
-app.get('/stats/hourly', (req, res, next) => {
+app.get('/api/stats/hourly', (req, res, next) => {
   req.sqlQuery = `
     SELECT date, hour, impressions, clicks, revenue
     FROM public.hourly_stats
@@ -47,7 +58,7 @@ app.get('/stats/hourly', (req, res, next) => {
   return next()
 }, queryHandler)
 
-app.get('/stats/daily', (req, res, next) => {
+app.get('/api/stats/daily', (req, res, next) => {
   req.sqlQuery = `
     SELECT date,
         SUM(impressions) AS impressions,
@@ -61,7 +72,7 @@ app.get('/stats/daily', (req, res, next) => {
   return next()
 }, queryHandler)
 
-app.get('/poi', (req, res, next) => {
+app.get('/api/poi', (req, res, next) => {
   req.sqlQuery = `
     SELECT *
     FROM public.poi;
@@ -69,12 +80,14 @@ app.get('/poi', (req, res, next) => {
   return next()
 }, queryHandler)
 
-app.listen(process.env.PORT || 5555, (err) => {
+const server =  app.listen(process.env.PORT || 5555, "localhost", (err) => {
+  let port = server.address().port;
+  let host = server.address().address
   if (err) {
     console.error(err)
     process.exit(1)
   } else {
-    console.log(`Running on ${process.env.PORT || 5555}`)
+    console.log(`Running on http://${host}:${port}`)
   }
 })
 
